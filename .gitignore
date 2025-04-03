@@ -1,0 +1,4 @@
+.idea
+__pycache__
+.next
+webapp/node_modules

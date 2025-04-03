@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  # MinIO Service
+  mc:
+    image: minio/mc
+    container_name: mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      sleep 10;
+      mc alias set local http://minio:9000 minioadmin minioadmin;
+      mc alias set local http://localhost:9000 minioadmin minioadmin;
+      mc admin user add local myuser mypassword;
+      mc mb local/bucket || true;
+      mc anonymous set upload local/bucket;
+      mc anonymous set cors local/bucket /config/cors.json
+      exit 0;
+      "
+    volumes:
+      - ./config:/config
+  minio:
+    image: minio/minio
+    container_name: minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_SERVER_URL: "http://localhost:9000"  # This is critical for signed URLs
+      MINIO_BROWSER_REDIRECT_URL: "http://localhost:9001"
+      MINIO_ENDPOINT: "localhost:9000"
+    ports:
+      - "9000:9000"  # API port
+      - "9001:9001"  # Console port
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: backend
+    ports:
+      - "8000:8000"
+    environment:
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_SECURE: False
+      MINIO_SERVER_URL: "http://localhost:9000"
+      MINIO_PORT: 9000
+    depends_on:
+      minio:
+        condition: service_healthy
+
+  # Next.js Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      backend:
+        condition: service_started
+
+volumes:
+  minio_data:

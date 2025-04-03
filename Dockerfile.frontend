@@ -1,0 +1,14 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install dependencies
+COPY webapp/package.json webapp/package-lock.json ./
+RUN npm install
+
+# Copy frontend code
+COPY webapp/ .
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev"]
