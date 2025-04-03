@@ -2,3 +2,5 @@
 __pycache__
 .next
 webapp/node_modules
+.env
+.env
