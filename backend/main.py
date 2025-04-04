@@ -34,13 +34,13 @@ app.add_middleware(
 )
 
 
-minio_client = Minio(
-            f"minio:9000",
-            access_key=MINIO_ACCESS_KEY,
-            secret_key=MINIO_SECRET_KEY,
-            secure=False,
-
-        )
+minio_client =  Minio(
+    "localhost:9000",  # Must match MINIO_SERVER_URL
+    access_key="minioadmin",
+    secret_key="minioadmin",
+    secure=False,
+    region="us-east-1"
+)
 
 @app.get("/")
 async def root():
@@ -59,21 +59,23 @@ async def get_signed_url():
         # Override the endpoint for signed URLs
 
         object_name = str(uuid4())
-        signed_url = minio_client.get_presigned_url(
-            "PUT",
+        signed_url = minio_client.presigned_put_object(
             "bucket",
             object_name,
-            expires=timedelta(days=1),
-            response_headers={
-                "Content-Type": "application/octet-stream"
-            }
+            expires=timedelta(hours=1),
         )
 
-        # 👇 Replace just the netloc (host:port) — not the signature
-
+        # Properly replace the host while preserving all signature parameters
         parsed = urlparse(signed_url)
-        public_url = urlunparse(parsed._replace(netloc="localhost:9000"))
-        print(f"public url {public_url}")
+        public_url = urlunparse(
+            parsed._replace(
+                netloc="localhost:9000",
+                # Ensure path starts with /bucket
+                path=f"/bucket{parsed.path.split('bucket', 1)[1]}"
+            )
+        )
+
+        print(f"Generated URL: {public_url}")
         return JSONResponse(status_code=200,
                             content={'signed_url': public_url, 'file_id': object_name}
                             )

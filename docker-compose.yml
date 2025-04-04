@@ -8,15 +8,15 @@ services:
     depends_on:
       minio:
         condition: service_healthy
-    entrypoint: >
+    entrypoint:  >
       /bin/sh -c "
-      sleep 10;
-      mc alias set local http://minio:9000 minioadmin minioadmin;
-      mc alias set local http://localhost:9000 minioadmin minioadmin;
-      mc admin user add local myuser mypassword;
-      mc mb local/bucket || true;
-      mc anonymous set upload local/bucket;
-      mc anonymous set cors local/bucket /config/cors.json
+      until (mc alias set local http://minio:9000 minioadmin minioadmin && mc mb local/bucket); do
+        echo 'Waiting for MinIO...';
+        sleep 5;
+      done;
+      mc anonymous set public local/bucket;
+      mc admin config set local/ notify_webhook:1 endpoint=\"http://localhost:9000\" queue_limit=\"10000\" queue_dir=\"\" enable=\"on\";
+      mc admin config set local/ api root_access=\"on\";
       exit 0;
       "
     volumes:
@@ -30,7 +30,7 @@ services:
       MINIO_ROOT_PASSWORD: minioadmin
       MINIO_SERVER_URL: "http://localhost:9000"  # This is critical for signed URLs
       MINIO_BROWSER_REDIRECT_URL: "http://localhost:9001"
-      MINIO_ENDPOINT: "localhost:9000"
+      MINIO_REGION: "us-east-1"
     ports:
       - "9000:9000"  # API port
       - "9001:9001"  # Console port

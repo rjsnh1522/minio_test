@@ -20,9 +20,6 @@ async function get_signed_url(){
 
 
 async function upload_file() {
-    console.log("Upload started");
-    console.log("Signed URL:", signed_url);
-
     const fileInput = document.getElementById('picture');
     const file = fileInput.files[0];
 
@@ -31,28 +28,24 @@ async function upload_file() {
         return;
     }
 
-    console.log("Uploading file:", file.name, file.size, file.type);
-
     try {
         const response = await fetch(signed_url, {
             method: 'PUT',
             body: file,
-            mode: 'cors',
             headers: {
-                'Content-Type': 'application/octet-stream'
+                'Content-Type': file.type || 'application/octet-stream',
             },
+            credentials: 'omit'
         });
 
-        console.log("Response:", response);
-
-        if (response.ok) {
-            console.log("✅ File uploaded successfully!");
-        } else {
-            const errorText = await response.text();
-            console.error("❌ Upload failed:", response.status, errorText);
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`Upload failed: ${error}`);
         }
+
+        console.log("Upload successful!");
     } catch (error) {
-        console.error("❌ Error uploading file:", error);
+        console.error("Upload error:", error);
     }
 }
 
